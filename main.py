@@ -1,8 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional, List
 
-app = FastAPI()
+from database import create_document, get_documents
+from schemas import Lead
+
+app = FastAPI(title="Ascendia API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,11 +19,35 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "Ascendia Backend is running"}
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok"}
 
 @app.get("/api/hello")
 def hello():
-    return {"message": "Hello from the backend API!"}
+    return {"message": "Hello from the Ascendia backend API!"}
+
+@app.post("/api/leads")
+def create_lead(lead: Lead):
+    try:
+        lead_id = create_document("lead", lead)
+        return {"success": True, "id": lead_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/leads")
+def list_leads(limit: Optional[int] = 25):
+    try:
+        docs = get_documents("lead", limit=limit)
+        # Convert ObjectId to string if present
+        for d in docs:
+            if "_id" in d:
+                d["id"] = str(d.pop("_id"))
+        return {"items": docs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test")
 def test_database():
